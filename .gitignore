@@ -1,0 +1,3 @@
+venv/
+
+scripts/train_knn_test.py
