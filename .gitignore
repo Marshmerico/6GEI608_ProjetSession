@@ -1,0 +1,9 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# audio (non redistribuable) et caches régénérables
+cnn/Data/audio_deezer/
+cnn/Data/cache_deezer/
+cnn/Data/genres_original/

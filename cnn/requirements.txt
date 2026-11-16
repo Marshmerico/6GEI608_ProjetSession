@@ -1,0 +1,10 @@
+# PyTorch version CPU :
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+torch
+torchaudio
+torchsummary
+soundfile>=0.12      # 0.12+ nécessaire pour lire les MP3
+numpy
+pandas
+scikit-learn
+matplotlib
