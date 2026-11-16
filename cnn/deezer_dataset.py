@@ -157,6 +157,10 @@ class DeezerDataset(Dataset):
         self.song_ids = data["song_ids"]
         self.song_labels = data["song_labels"]
         self.mean, self.std = 0.0, 1.0
+        # SpecAugment (Park et al., 2019) : à activer SEULEMENT pour l'entraînement
+        self.augment = False
+        self.freq_mask = torchaudio.transforms.FrequencyMasking(freq_mask_param=12)   # jusqu'à 12 bandes mel
+        self.time_mask = torchaudio.transforms.TimeMasking(time_mask_param=20)        # jusqu'à 20 trames (~0,5 s)
 
     def normalize(self, mean, std):
         """Normalisation avec la moyenne et l'écart-type calculés sur l'ENTRAÎNEMENT."""
@@ -167,6 +171,10 @@ class DeezerDataset(Dataset):
 
     def __getitem__(self, index):
         x = (self.features[index].float() - self.mean) / self.std
+        if self.augment:
+            # masques tirés au hasard à chaque lecture ; la zone masquée vaut 0,
+            # c'est-à-dire la moyenne puisque les données sont normalisées
+            x = self.time_mask(self.freq_mask(x))
         return x, self.labels[index]
 
 

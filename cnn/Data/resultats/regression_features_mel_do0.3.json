@@ -40,9 +40,35 @@
     "valence": 0.1387810415819762,
     "tempo": 21.35324918979531
   },
+  "tempo": {
+    "source": "signal (librosa)",
+    "pmc_a_4pct": 0.17582417582417584,
+    "pmc_a_4pct_ou_octave": 0.17582417582417584,
+    "signal_r2": 0.23109159630303222,
+    "signal_a_4pct": 0.6483516483516484,
+    "signal_a_4pct_ou_octave": 0.8241758241758241,
+    "chansons_sans_tempo": 0
+  },
+  "features_knn_recommandees": [
+    "danceability",
+    "energy",
+    "loudness",
+    "speechiness",
+    "acousticness",
+    "instrumentalness",
+    "valence",
+    "tempo"
+  ],
   "recommandation": {
-    "p10_vraies": 0.2796703296703297,
-    "p10_predites": 0.2692307692307692,
-    "voisins_communs": 0.08681318681318681
+    "les 9": {
+      "p10_vraies": 0.27087912087912086,
+      "p10_predites": 0.27307692307692305,
+      "voisins_communs": 0.12087912087912088
+    },
+    "8, sans liveness": {
+      "p10_vraies": 0.27197802197802196,
+      "p10_predites": 0.26868131868131867,
+      "voisins_communs": 0.1434065934065934
+    }
   }
 }

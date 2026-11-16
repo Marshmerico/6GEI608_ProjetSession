@@ -81,12 +81,15 @@ def main():
     p.add_argument("--batch", type=int, default=64)
     p.add_argument("--dropout", type=float, default=0.3)
     p.add_argument("--no-batchnorm", action="store_true")
+    p.add_argument("--weight-decay", type=float, default=0.0, help="pénalité L2 sur les poids (ex. 1e-4)")
+    p.add_argument("--augment", action="store_true", help="SpecAugment sur l'entraînement")
     p.add_argument("--seed", type=int, default=42)
     args = p.parse_args()
 
     torch.manual_seed(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    name = f"{args.feature}{'_nobn' if args.no_batchnorm else ''}_do{args.dropout}"
+    name = (f"{args.feature}{'_nobn' if args.no_batchnorm else ''}_do{args.dropout}"
+            f"{f'_wd{args.weight_decay:g}' if args.weight_decay else ''}{'_aug' if args.augment else ''}")
     os.makedirs(RESULTS_DIR, exist_ok=True)
     print(f"Using {device} device | expérience : {name}")
 
@@ -107,6 +110,7 @@ def main():
     std = (total_sq / count - mean ** 2) ** 0.5
     for ds in (train_ds, val_ds, test_ds):
         ds.normalize(mean, std)
+    train_ds.augment = args.augment            # jamais sur la validation ni le test
 
     train_loader = DataLoader(train_ds, batch_size=args.batch, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=args.batch)       # pas de mélange : vote par chanson
@@ -121,7 +125,7 @@ def main():
     counts = torch.bincount(train_ds.song_labels, minlength=len(genres)).float()
     weights = counts.sum() / (len(genres) * counts)
     loss_fn = nn.CrossEntropyLoss(weight=weights.to(device))
-    optimiser = torch.optim.Adam(model.parameters(), lr=args.lr)
+    optimiser = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
     weights_path = os.path.join(RESULTS_DIR, f"cnn_deezer_{name}.pth")
     best_acc, best_epoch, history = -1.0, 0, []

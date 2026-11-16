@@ -8,3 +8,4 @@ numpy
 pandas
 scikit-learn
 matplotlib
+librosa              # tempo par détection des temps (tempo_audio.py)

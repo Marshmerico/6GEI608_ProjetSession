@@ -11,6 +11,10 @@ Les hyperparamètres du PMC sont choisis sur la VALIDATION ; le TEST n'est utili
     python regression_features.py                    # embeddings Data/resultats/embeddings_mel_do0.3.csv
     python regression_features.py --model mel_do0.5  # autre expérience CNN
 
+Tempo : s'il existe, Data/resultats/tempo_audio.csv (tempo_audio.py, détection des temps)
+remplace le tempo prédit par le PMC, qui est peu fiable.
+Liveness : prédite mais EXCLUE du k-NN (imprévisible depuis un extrait, peu utile pour recommander).
+
 Sorties (Data/resultats/) :
     features_predites_<modèle>.csv      9 features prédites pour les 1 812 chansons (+ split)
     regression_features_<modèle>.json   R² et erreur moyenne par feature, réglages retenus
@@ -33,6 +37,8 @@ from sklearn.preprocessing import StandardScaler
 RESULTS_DIR = "Data/resultats"
 FEATURES = ["danceability", "energy", "loudness", "speechiness", "acousticness",
             "instrumentalness", "liveness", "valence", "tempo"]
+KNN_FEATURES = [f for f in FEATURES if f != "liveness"]      # features recommandées pour le k-NN
+TEMPO_FILE = os.path.join(RESULTS_DIR, "tempo_audio.csv")
 
 
 def load_data(model_name):
@@ -46,6 +52,43 @@ def load_data(model_name):
 
 def r2_per_feature(y_true, y_pred):
     return {f: r2_score(y_true[:, i], y_pred[:, i]) for i, f in enumerate(FEATURES)}
+
+
+def tempo_accuracy(true, est):
+    """Part des tempos à ±4 % près, et à ±4 % près en acceptant le double ou la moitié
+    (erreur d'octave classique : 70 BPM au lieu de 140)."""
+    ratio = est / true
+    exact = np.abs(ratio - 1) <= 0.04
+    octave = exact | (np.abs(ratio - 2) <= 0.08) | (np.abs(ratio - 0.5) <= 0.02)
+    return exact.mean(), octave.mean()
+
+
+def fold_tempo(bpm, low=70.0):
+    """Ramène chaque tempo dans [70, 140[ BPM en le doublant ou le divisant par deux.
+    Les détecteurs de temps se trompent souvent d'un facteur 2 (erreur d'octave) ;
+    une fois replié, 70 et 140 BPM deviennent la même valeur."""
+    bpm = np.asarray(bpm, dtype=float)
+    safe = np.where(bpm > 0, bpm, low)                  # tempo 0 (morceau sans pulsation) : laissé tel quel
+    return np.where(bpm > 0, safe * 2.0 ** (-np.floor(np.log2(safe / low))), bpm)
+
+
+def knn_eval(Y, pred, cols, tr, te, labels):
+    """Requête = features PRÉDITES d'une chanson de test ; catalogue = VRAIES features
+    des 1 812 chansons (comme dans la démo). Renvoie p@10 vraies, p@10 prédites, voisins communs."""
+    idx = [FEATURES.index(c) for c in cols]
+    Y, pred = Y.copy(), pred.copy()
+    t_i = FEATURES.index("tempo")
+    Y[:, t_i], pred[:, t_i] = fold_tempo(Y[:, t_i]), fold_tempo(pred[:, t_i])   # tempos repliés
+    mean, std = Y[tr][:, idx].mean(axis=0), Y[tr][:, idx].std(axis=0)
+    catalog = (Y[:, idx] - mean) / std
+    query = (pred[:, idx] - mean) / std
+    test_idx = np.flatnonzero(te)
+    nn_true = neighbours(catalog[test_idx], catalog, exclude=test_idx)
+    nn_pred = neighbours(query[test_idx], catalog, exclude=test_idx)
+    p10_true = (labels[nn_true] == labels[test_idx][:, None]).mean()
+    p10_pred = (labels[nn_pred] == labels[test_idx][:, None]).mean()
+    overlap = np.mean([len(set(a) & set(b)) / 10 for a, b in zip(nn_true, nn_pred)])
+    return p10_true, p10_pred, overlap
 
 
 def neighbours(Q, C, k=10, exclude=None):
@@ -109,25 +152,39 @@ def main():
         print(f"  {f:18s} {r2_mlp[f]:6.2f} {r2_lin[f]:6.2f}   {mae[f]:.3f}")
     print(f"  {'moyenne':18s} {np.mean(list(r2_mlp.values())):6.2f} {np.mean(list(r2_lin.values())):6.2f}")
 
-    # ---- effet sur la recommandation : requête = features PRÉDITES d'une chanson de test,
-    #      catalogue = VRAIES features des 1 812 chansons (comme dans la démo)
-    catalog = (Y - Y[tr].mean(axis=0)) / Y[tr].std(axis=0)
-    query_pred = (pred - Y[tr].mean(axis=0)) / Y[tr].std(axis=0)
-    test_idx = np.flatnonzero(te)
+    # ---- tempo : mesuré sur le signal plutôt que prédit, si tempo_audio.py a été lancé
+    t_i = FEATURES.index("tempo")
+    tempo_source = "PMC"
+    acc_pmc = tempo_accuracy(Y[te, t_i], pred[te, t_i])
+    tempo_info = {"pmc_a_4pct": acc_pmc[0], "pmc_a_4pct_ou_octave": acc_pmc[1]}
+    print(f"\nTempo prédit par le PMC : {acc_pmc[0]:.0%} à ±4 %, {acc_pmc[1]:.0%} en acceptant double/moitié")
+    if os.path.exists(TEMPO_FILE):
+        tempo = df[["track_id"]].merge(pd.read_csv(TEMPO_FILE), on="track_id", how="left")["tempo_audio"]
+        ok = tempo.notna().to_numpy()
+        pred[ok, t_i] = tempo[ok].to_numpy()
+        tempo_source = "signal (librosa)"
+        r2_sig = r2_score(fold_tempo(Y[te & ok, t_i]), fold_tempo(pred[te & ok, t_i]))   # tempos repliés
+        acc_sig = tempo_accuracy(Y[te & ok, t_i], pred[te & ok, t_i])
+        tempo_info.update({"signal_r2": r2_sig, "signal_a_4pct": acc_sig[0],
+                           "signal_a_4pct_ou_octave": acc_sig[1], "chansons_sans_tempo": int((~ok).sum())})
+        print(f"Tempo mesuré sur le signal : R² {r2_sig:.2f}, {acc_sig[0]:.0%} à ±4 %, "
+              f"{acc_sig[1]:.0%} en acceptant double/moitié ({(~ok).sum()} chansons sans tempo)")
+    else:
+        print(f"(lancer tempo_audio.py pour remplacer le tempo prédit par le tempo mesuré)")
+
+    # ---- effet sur la recommandation
     labels = df["label"].to_numpy()
-    nn_true = neighbours(catalog[test_idx], catalog, exclude=test_idx)
-    nn_pred = neighbours(query_pred[test_idx], catalog, exclude=test_idx)
-    p10_true = (labels[nn_true] == labels[test_idx][:, None]).mean()
-    p10_pred = (labels[nn_pred] == labels[test_idx][:, None]).mean()
-    overlap = np.mean([len(set(a) & set(b)) / 10 for a, b in zip(nn_true, nn_pred)])
-    print(f"\nRecommandation (k-NN, 9 features, sans le genre) - chansons de test :")
-    print(f"  precision@10 genre avec les VRAIES features   : {p10_true:.1%}")
-    print(f"  precision@10 genre avec les features PRÉDITES : {p10_pred:.1%}")
-    print(f"  voisins communs aux deux listes de 10         : {overlap:.1%}")
+    reco = {}
+    print(f"\nRecommandation (k-NN sans le genre, chansons de test ; tempo : {tempo_source}) :")
+    print(f"  {'features':24s} {'p@10 vraies':>12s} {'p@10 prédites':>14s} {'voisins communs':>16s}")
+    for label, cols in [("les 9", FEATURES), ("8, sans liveness", KNN_FEATURES)]:
+        p10_true, p10_pred, overlap = knn_eval(Y, pred, cols, tr, te, labels)
+        reco[label] = {"p10_vraies": p10_true, "p10_predites": p10_pred, "voisins_communs": overlap}
+        print(f"  {label:24s} {p10_true:12.1%} {p10_pred:14.1%} {overlap:16.1%}")
 
     # ---- sauvegardes
     out = df[["track_id", "artist", "title", "genre", "split"]].copy()
-    out[FEATURES] = pred
+    out[FEATURES] = pred                 # tempo = mesuré sur le signal s'il est disponible
     out.to_csv(os.path.join(RESULTS_DIR, f"features_predites_{args.model}.csv"),
                index=False, float_format="%.4f")
     with open(os.path.join(RESULTS_DIR, f"regression_features_{args.model}.pkl"), "wb") as f:
@@ -136,8 +193,8 @@ def main():
               encoding="utf-8") as f:
         json.dump({"pmc": {"couches": list(hidden), "alpha": alpha, "r2_validation": r2_val},
                    "test_r2_pmc": r2_mlp, "test_r2_ridge": r2_lin, "test_erreur_moyenne": mae,
-                   "recommandation": {"p10_vraies": p10_true, "p10_predites": p10_pred,
-                                      "voisins_communs": overlap}},
+                   "tempo": {"source": tempo_source, **tempo_info},
+                   "features_knn_recommandees": KNN_FEATURES, "recommandation": reco},
                   f, ensure_ascii=False, indent=2)
     print(f"\n-> {RESULTS_DIR}/features_predites_{args.model}.csv (+ .json, .pkl)")
 
