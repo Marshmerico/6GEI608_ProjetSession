@@ -1,3 +1,0 @@
-https://scikit-learn.org/stable/auto_examples/neighbors/plot_regression.html
-
-https://github.com/Krishna-Mawar18/Soptify-Song-Recommendation-Engine/blob/main/src/recommender.py
