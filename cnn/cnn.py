@@ -35,12 +35,24 @@ class CNNNetwork(nn.Module):
         layers += [nn.ReLU(), nn.MaxPool2d(kernel_size=2)]
         return nn.Sequential(*layers)
 
-    def _features(self, x):
+    def _conv(self, x):
+        # 4 blocs de convolution : (N, 1, bandes, trames) -> (N, 128, h, w)
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
         x = self.conv4(x)
-        return self.flatten(x)
+        return x
+
+    def _features(self, x):
+        return self.flatten(self._conv(x))
+
+    def embed(self, x):
+        """Embedding d'un segment : 128 valeurs, une par filtre de conv4.
+        Moyenne de chaque carte de caractéristiques sur la fréquence et le temps
+        (global average pooling) : (N, 128, h, w) -> (N, 128).
+        Ni dropout ni couche linéaire : on veut la représentation, pas la décision de genre.
+        Appeler avec model.eval() et torch.no_grad()."""
+        return self._conv(x).mean(dim=(2, 3))
 
     def forward(self, input_data):
         # retourne des logits : nn.CrossEntropyLoss applique déjà le softmax,
@@ -52,6 +64,9 @@ class CNNNetwork(nn.Module):
 
 
 if __name__ == "__main__":
-    cnn = CNNNetwork()
+    cnn = CNNNetwork(input_shape=(1, 96, 130))
     # summary -> (model, input_shape)
-    summary(cnn, (1, 20, 130), device="cpu")   # (num_channels, num_mfcc_bands, time_frames)
+    summary(cnn, (1, 96, 130), device="cpu")   # (canaux, bandes mel, trames)
+    cnn.eval()
+    with torch.no_grad():
+        print("embed :", cnn.embed(torch.zeros(4, 1, 96, 130)).shape)   # attendu : (4, 128)
