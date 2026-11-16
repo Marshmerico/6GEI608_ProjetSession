@@ -3,8 +3,10 @@ import pandas as pd
 import numpy as np
 
 from sklearn.decomposition import PCA
-from sklearn.neighbors import NearestNeighbors
+from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score
 
 
 FEATURES = [
@@ -72,6 +74,35 @@ def feature_selection(input_path):
     plt.show()
 
     return ncomponents, PCA(n_components=ncomponents).fit(standard)
+
+def confusion_matrix(input_path, ncomponents):
+    df = pd.read_csv(input_path)
+    df = df.drop_duplicates(["track_name", "artists"]).reset_index(drop=True)
+
+    n = df["track_genre"].value_counts().min()
+    df = df.groupby("track_genre").sample(n=n, random_state=0)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        df[FEATURES], df["track_genre"], test_size=0.2, stratify=df["track_genre"], random_state=0)
+
+    
+    scaler = StandardScaler().fit(X_train)
+    pca = PCA(n_components=ncomponents).fit(scaler.transform(X_train))
+
+    X_train = pca.transform(scaler.transform(X_train))
+    X_test = pca.transform(scaler.transform(X_test))
+
+    knn = KNeighborsClassifier(n_neighbors=K_NEIGHBORS, metric="cosine").fit(X_train, y_train)
+    y_pred = knn.predict(X_test)
+    print(f"Accuracy: {accuracy_score(y_test, y_pred):.3f}\n")
+
+    ConfusionMatrixDisplay.from_predictions(y_test, y_pred, normalize="true", values_format=".2f",
+                                            cmap="Oranges", xticks_rotation=45)
+    plt.title(f"Confusion matrix (KNN, k={K_NEIGHBORS}, {ncomponents} principal components)")
+    plt.gcf().set_size_inches(10, 9)
+    plt.tight_layout()
+    plt.savefig("figure/confusion_genre")
+    plt.show()
 
 
 def recommendation(input_path, input_track, input_artist, input_genre, input_features, k_neighbors):
@@ -152,6 +183,8 @@ if __name__ == "__main__":
     input_path = "data/playlist_1_full_regrouped.csv"
 
     ncomponents, pca = feature_selection(input_path)
+
+    confusion_matrix(input_path, ncomponents)
 
     results,song_label, kneighbors = recommendation("data/playlist_1_full_regrouped.csv", INPUT_TRACK, INPUT_ARTIST, INPUT_GENRE, INPUT_FEATURES, K_NEIGHBORS)
 
