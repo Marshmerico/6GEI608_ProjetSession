@@ -1,0 +1,48 @@
+{
+  "pmc": {
+    "couches": [
+      128,
+      64
+    ],
+    "alpha": 0.1,
+    "r2_validation": 0.5087380427976806
+  },
+  "test_r2_pmc": {
+    "danceability": 0.6269136113887762,
+    "energy": 0.8320762437930402,
+    "loudness": 0.8756695054374808,
+    "speechiness": 0.31225630161273454,
+    "acousticness": 0.766779512884899,
+    "instrumentalness": 0.6447187860073587,
+    "liveness": -0.017199770977599727,
+    "valence": 0.5345501341552203,
+    "tempo": 0.06527694592724265
+  },
+  "test_r2_ridge": {
+    "danceability": 0.6659026879125783,
+    "energy": 0.8370700800613418,
+    "loudness": 0.8410497124265726,
+    "speechiness": 0.3675551799848146,
+    "acousticness": 0.7456331862522808,
+    "instrumentalness": 0.6307985611812611,
+    "liveness": 0.04075082776587091,
+    "valence": 0.5922176676787618,
+    "tempo": 0.1202862012444903
+  },
+  "test_erreur_moyenne": {
+    "danceability": 0.08413770166019865,
+    "energy": 0.08284081468679717,
+    "loudness": 1.9739246952390959,
+    "speechiness": 0.0420706209949717,
+    "acousticness": 0.1156505318992748,
+    "instrumentalness": 0.09595163126164345,
+    "liveness": 0.09374764688142548,
+    "valence": 0.1387810415819762,
+    "tempo": 21.35324918979531
+  },
+  "recommandation": {
+    "p10_vraies": 0.2796703296703297,
+    "p10_predites": 0.2692307692307692,
+    "voisins_communs": 0.08681318681318681
+  }
+}
