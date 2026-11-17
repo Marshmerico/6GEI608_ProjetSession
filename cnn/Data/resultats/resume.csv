@@ -1,0 +1,7 @@
+experience,caracteristiques,batchnorm,dropout,weight_decay,augmentation,meilleure_epoque,epoques_faites,test_segments_%,test_chansons_%
+mel_do0.5_wd0.0001_aug,mel,True,0.5,0.0001,True,21,29,47.0,54.4
+mel_do0.3,mel,True,0.3,0.0,False,19,27,40.3,52.7
+mfcc_do0.3,mfcc,True,0.3,0.0,False,3,11,44.0,51.1
+mel_do0.3_wd0.0001,mel,True,0.3,0.0001,False,22,30,42.3,49.5
+mel_do0.3_aug,mel,True,0.3,0.0,True,12,20,43.4,47.8
+mel_nobn_do0.0,mel,False,0.0,0.0,False,6,14,40.1,47.3

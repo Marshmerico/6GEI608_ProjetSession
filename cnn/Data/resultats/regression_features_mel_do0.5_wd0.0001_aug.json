@@ -1,0 +1,73 @@
+{
+  "pmc": {
+    "couches": [
+      128
+    ],
+    "alpha": 0.1,
+    "r2_validation": 0.4924218043860526
+  },
+  "test_r2_pmc": {
+    "danceability": 0.6272462128503131,
+    "energy": 0.8174316250669564,
+    "loudness": 0.8487568315571251,
+    "speechiness": 0.3837660460481318,
+    "acousticness": 0.737527500873311,
+    "instrumentalness": 0.6325465551938514,
+    "liveness": 0.03657928403843258,
+    "valence": 0.564512442596188,
+    "tempo": 0.06475100959903357
+  },
+  "test_r2_ridge": {
+    "danceability": 0.6272904805389092,
+    "energy": 0.8500299503338032,
+    "loudness": 0.8423535773894424,
+    "speechiness": 0.3999852308892464,
+    "acousticness": 0.7364470460363044,
+    "instrumentalness": 0.6010594562203049,
+    "liveness": 0.003611946089025375,
+    "valence": 0.5832631550871483,
+    "tempo": 0.1513536746682328
+  },
+  "test_erreur_moyenne": {
+    "danceability": 0.0873598012071568,
+    "energy": 0.08736052015003927,
+    "loudness": 2.127793987372359,
+    "speechiness": 0.04139658655791576,
+    "acousticness": 0.12349243949828954,
+    "instrumentalness": 0.08999265164239899,
+    "liveness": 0.08742456581338658,
+    "valence": 0.13679043427503174,
+    "tempo": 21.393403273704514
+  },
+  "tempo": {
+    "source": "signal (librosa)",
+    "pmc_a_4pct": 0.2032967032967033,
+    "pmc_a_4pct_ou_octave": 0.21428571428571427,
+    "signal_r2": 0.23109159630303222,
+    "signal_a_4pct": 0.6483516483516484,
+    "signal_a_4pct_ou_octave": 0.8241758241758241,
+    "chansons_sans_tempo": 0
+  },
+  "features_knn_recommandees": [
+    "danceability",
+    "energy",
+    "loudness",
+    "speechiness",
+    "acousticness",
+    "instrumentalness",
+    "valence",
+    "tempo"
+  ],
+  "recommandation": {
+    "les 9": {
+      "p10_vraies": 0.27087912087912086,
+      "p10_predites": 0.28736263736263734,
+      "voisins_communs": 0.12472527472527474
+    },
+    "8, sans liveness": {
+      "p10_vraies": 0.27197802197802196,
+      "p10_predites": 0.2813186813186813,
+      "voisins_communs": 0.14285714285714285
+    }
+  }
+}
