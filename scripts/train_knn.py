@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import joblib
 
 from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
@@ -43,7 +44,7 @@ def feature_selection(input_path):
     scaler = StandardScaler()
     standard = scaler.fit_transform(df[FEATURES])
 
-    pca = PCA().fit(standard)
+    pca = PCA(0.8).fit(standard)
 
     variance = pca.explained_variance_ratio_
     
@@ -92,20 +93,19 @@ def confusion_matrix(input_path, ncomponents):
     X_train = pca.transform(scaler.transform(X_train))
     X_test = pca.transform(scaler.transform(X_test))
 
-    knn = KNeighborsClassifier(n_neighbors=K_NEIGHBORS, metric="cosine").fit(X_train, y_train)
+    knn = KNeighborsClassifier(n_neighbors=50, metric="cosine").fit(X_train, y_train)
     y_pred = knn.predict(X_test)
     print(f"Accuracy: {accuracy_score(y_test, y_pred):.3f}\n")
 
     ConfusionMatrixDisplay.from_predictions(y_test, y_pred, normalize="true", values_format=".2f",
                                             cmap="Oranges", xticks_rotation=45)
-    plt.title(f"Confusion matrix (KNN, k={K_NEIGHBORS}, {ncomponents} principal components)")
+    plt.title(f"Confusion matrix (KNN, k=50, {ncomponents} principal components)")
     plt.gcf().set_size_inches(10, 9)
     plt.tight_layout()
     plt.savefig("figure/confusion_genre")
     plt.show()
 
-
-def recommendation(input_path, input_track, input_artist, input_genre, input_features, k_neighbors):
+def train():
     df = pd.read_csv(input_path)
     df = df.drop_duplicates(["track_name", "artists"]).reset_index(drop=True)
 
@@ -116,42 +116,51 @@ def recommendation(input_path, input_track, input_artist, input_genre, input_fea
     encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
     standard = np.hstack([standard, GENRE_WEIGHT * encoder.fit_transform(df[["track_genre"]])])
 
-    #search criteria
-    #check if song in list
+    
+    nn = NearestNeighbors(n_neighbors=K_NEIGHBORS, metric="cosine")
+    nn.fit(standard)
 
-    match = df["track_name"].str.lower() == input_track.lower()
-    match &= df["artists"].str.contains(input_artist, case=False, regex=False)
+    joblib.dump(nn,"knn_model.pkl")
+    
 
-    if match.any():
-        query_index = match.idxmax()
-        query = standard[[query_index]]
-        query_label = f"{df.at[query_index, 'track_name']} – {df.at[query_index, 'artists']}"
 
-    else:
-        query_index = None
-        query = scaler.transform(pd.DataFrame([input_features])[FEATURES])
-        genre = encoder.transform(pd.DataFrame({"track_genre": [input_genre]}))
-        query = np.hstack([query, GENRE_WEIGHT * genre])
-        query_label = f"input_track_name - input_artist"
+def recommendation(input_path, input_track, input_artist, input_genre, input_features, k_neighbors):
+    
+    nn = joblib.load("knn_model.pkl")
 
-    #kneighbors
-    nn = NearestNeighbors(n_neighbors=k_neighbors + 1, metric="cosine").fit(standard)
+    df = pd.read_csv(input_path)
+    df = df.drop_duplicates(["track_name", "artists"]).reset_index(drop=True)
+
+    scaler = StandardScaler()
+    standard = scaler.fit_transform(df[FEATURES])
+    
+    #encode genre
+    encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+    standard = np.hstack([standard, GENRE_WEIGHT * encoder.fit_transform(df[["track_genre"]])])
+    
+   
+
+    query_features = pd.DataFrame([input_features])[FEATURES]      
+    query_genre = pd.DataFrame({"track_genre": [input_genre]})    
+    query = np.hstack([
+        scaler.transform(query_features),
+        GENRE_WEIGHT * encoder.transform(query_genre),
+    ])
+
     distances, indices = nn.kneighbors(query)
     
     results = df.loc[indices[0], ["track_name", "artists", "track_genre"]].copy()
     results["similarity"] = 1 - distances[0]
 
-    if query_index is not None:
-        results = results.drop(index=query_index, errors="ignore")  # dont return same song
-
+    
     results = results.head(k_neighbors).reset_index(drop=True)
     results.index += 1
     
-    print(f"Songs most similar to: {query_label}\n")
+    print(f"Songs most similar to: {input_track}\n")
     print(results.to_string(float_format="{:.3f}".format))
 
 
-    return results, query_label, k_neighbors
+    return results, input_track, k_neighbors
 
 
     
@@ -185,6 +194,8 @@ if __name__ == "__main__":
     ncomponents, pca = feature_selection(input_path)
 
     confusion_matrix(input_path, ncomponents)
+    
+    train()
 
     results,song_label, kneighbors = recommendation("data/playlist_1_full_regrouped.csv", INPUT_TRACK, INPUT_ARTIST, INPUT_GENRE, INPUT_FEATURES, K_NEIGHBORS)
 
