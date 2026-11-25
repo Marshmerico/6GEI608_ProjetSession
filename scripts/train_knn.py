@@ -189,7 +189,7 @@ if __name__ == "__main__":
         "valence": 0.649, "tempo": 164.959,
     }
 
-    input_path = "data/playlist_1_full_regrouped.csv"
+    input_path = "data/playlist_1_full_regrouped_v2.csv"
 
     ncomponents, pca = feature_selection(input_path)
 
@@ -197,6 +197,6 @@ if __name__ == "__main__":
     
     train()
 
-    results,song_label, kneighbors = recommendation("data/playlist_1_full_regrouped.csv", INPUT_TRACK, INPUT_ARTIST, INPUT_GENRE, INPUT_FEATURES, K_NEIGHBORS)
+    results,song_label, kneighbors = recommendation( input_path, INPUT_TRACK, INPUT_ARTIST, INPUT_GENRE, INPUT_FEATURES, K_NEIGHBORS)
 
     graphic_results(results,song_label, kneighbors)
